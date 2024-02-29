@@ -1,57 +1,94 @@
-const express = require('express')
-const app = express()
+const express = require('express');
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+const app = express();
 app.use(express.json());
 
-let voitures = [
-    {id:1, name:"clio"},
-    {id:2, name:"fiat"},
-    {id:3, name:""}
-]
+
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Error connecting to MongoDB:', err));
 
 
+const voitureSchema = new mongoose.Schema({
+  name: String
+});
 
-app.get('/', (req, res) => {
+const Voiture = mongoose.model('Voiture', voitureSchema);
+
+
+app.get('/', async (req, res) => {
+  try {
+    const voitures = await Voiture.find();
     res.json(voitures);
-    
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.get('/:id', (req, res)=> {
-  const id = parseInt(req.params.id);
-  const voiture = voitures.find(voiture=>voiture.id === id);
-  if (voiture){
-    res.json(voiture);
-  }
-  else{
-    console.log('voiture doesnt exist');
-  }
-}
-);
-app.post('/create', (req,res) =>{
-  const {name} = req.body;
-  const id = voitures.length + 1;
-  const newV = {id, name};
-  voitures.push(newV);
-  res.status(201).json(newV);
-}
-);
-app.put('/:id', (req, res)=>{
-  const {name} = req.body;
-  const id = parseInt(req.params.id);
-  const v = voitures.findIndex(voiture => voitures.id === id);
-  if(index !== -1){
-    voitures[v]= {name};
-    res.json(voitures[v]);
-  }
-  else{
-    res.status(404).json({message:"not found"});
+app.get('/:id', async (req, res) => {
+  try {
+    const voiture = await Voiture.findById(req.params.id);
+    if (voiture) {
+      res.json(voiture);
+    } else {
+      console.log('Voiture does not exist');
+      res.status(404).json({ message: 'Voiture not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
-app.delete('/:id', (req,res) =>{
-  const id = parseInt(req.params.id);
-  voitures.filter(voiture => voitures.id === id);
-  console.log('success');
-}
-);
-app.listen(5000, () => {
-  console.log('Server is running on port 5000')
-})
+
+app.post('/create', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const voiture = new Voiture({ name });
+    await voiture.save();
+    res.status(201).json(voiture);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const voiture = await Voiture.findByIdAndUpdate(req.params.id, { name }, { new: true });
+    if (voiture) {
+      res.json(voiture);
+    } else {
+      console.log('Voiture not found');
+      res.status(404).json({ message: 'Voiture not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/:id', async (req, res) => {
+  try {
+    const voiture = await Voiture.findByIdAndDelete(req.params.id);
+    if (voiture) {
+      res.json(voiture);
+    } else {
+      console.log('Voiture not found');
+      res.status(404).json({ message: 'Voiture not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+
